@@ -29,4 +29,16 @@ class ProductController {
                 .toUri()
         return ResponseEntity.created(location).body(request)
     }
+
+    @PutMapping("/products/{id}")
+    fun putProduct(@PathVariable("id") id: String, @RequestBody request: Product): ResponseEntity<Product> {
+
+        // kotlin find/first can't get reference of data class
+        var product_index = productDB.indexOfFirst { p->p.id == id }
+        if(product_index < 0) {
+            return ResponseEntity.notFound().build<Product>()
+        }
+        productDB[product_index] = request
+        return ResponseEntity.ok(request)
+    }
 }
