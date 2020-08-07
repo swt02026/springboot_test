@@ -1,4 +1,5 @@
 package com.example.demo
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -8,61 +9,44 @@ import java.net.URI
 
 @RestController
 @RequestMapping(value = ["/products"], produces = [MediaType.APPLICATION_JSON_VALUE])
-class ProductController {
+class ProductCsqontroller(@Autowired var mockProductService: MockProductService) {
     var productDB = mutableListOf<Product>(Product("aaaa","bbb",123))
+
     @GetMapping("{id}")
     fun getProduct(@PathVariable("id") id:String): ResponseEntity<Product> {
-        val product = productDB.find { it.id == id } ?: return ResponseEntity.notFound().build<Product>()
+        val product =  mockProductService.getProduct(id)
         return ResponseEntity.ok().body(product)
     }
 
     @PostMapping
-    fun postProduct(@RequestBody request: Product): ResponseEntity<Product> {
-        if(productDB.any { it.id == request.id }){
-            return ResponseEntity.status(HttpStatus.CONFLICT).build<Product>()
-        }
-        productDB.add(request.copy())
-        var location: URI = ServletUriComponentsBuilder.fromCurrentRequest()
+    fun createProduct(@RequestBody request: Product): ResponseEntity<Product> {
+
+        val product = mockProductService.createProduct(request)
+
+        val location: URI = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(request.id)
                 .toUri()
-        return ResponseEntity.created(location).body(request)
+        return ResponseEntity.created(location).body(product)
     }
 
     @PutMapping("{id}")
-    fun putProduct(@PathVariable("id") id: String, @RequestBody request: Product): ResponseEntity<Product> {
+    fun replaceProduct(@PathVariable("id") id: String, @RequestBody request: Product): ResponseEntity<Product?> {
 
         // kotlin find/first can't get reference of data class
-        var product_index = productDB.indexOfFirst { it.id == id }
-        if(product_index < 0) {
-            return ResponseEntity.notFound().build<Product>()
-        }
-        productDB[product_index] = request
-        return ResponseEntity.ok(request)
+        val product: Product? = mockProductService.replaceProduct(id, request)
+        return ResponseEntity.ok(product)
     }
 
     @DeleteMapping("{id}")
     fun deleteProduct(@PathVariable("id") id: String): ResponseEntity<Product> {
-        val removed = productDB.removeIf { it.id == id}
-        if(removed){
-            return ResponseEntity.noContent().build<Product>()
-        }
-        return ResponseEntity.notFound().build<Product>()
+        mockProductService.deleteProduct(id)
+        return ResponseEntity.noContent().build<Product>()
     }
 
     @GetMapping
     fun getProducts(@ModelAttribute param: ProductQueryParameter): ResponseEntity<List<Product>> {
-        val (keyword, orderBy, sortRule) = param
-        val productsFiltered = productDB.filter { keyword == null || keyword?.toUpperCase().toString() in it.name.toUpperCase() }
-        val productSorted = when(orderBy){
-            "name" ->productsFiltered.sortedBy { it.name }
-            "price" -> productsFiltered.sortedBy { it.price }
-            else -> productsFiltered
-        }
-        val productOrderSeq = when(sortRule) {
-            "desc" -> productSorted.reversed()
-            else -> productSorted
-        }
+        val productOrderSeq = mockProductService.getProducts(param)
         return ResponseEntity.ok(productOrderSeq)
     }
 }
